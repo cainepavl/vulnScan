@@ -85,7 +85,7 @@ Each WARN finding adds **1 risk point**; each FAIL adds **3 risk points**.
 
 ```bash
 # Clone the repo
-git clone https://github.com/YOUR_USERNAME/vulnScan.git
+git clone https://github.com/cainepavl/vulnScan.git
 cd vulnScan
 
 # Make the script executable

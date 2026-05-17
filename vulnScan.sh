@@ -5,7 +5,7 @@
 # Version  : 0.1.0
 # License  : MIT
 # Platform : Fedora / RHEL / CentOS (bash 5+)
-# Project  : https://github.com/YOUR_USERNAME/vulnScan
+# Project  : https://github.com/cainepavl/vulnScan
 # ==============================================================================
 #
 # WHAT IT DOES:
