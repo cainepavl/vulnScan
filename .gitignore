@@ -1,0 +1,7 @@
+# vulnScan — sanitization list
+# Never commit script output, logs, or environment files
+
+*.log
+*.txt
+.env
+output/
