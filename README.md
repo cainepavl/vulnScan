@@ -237,6 +237,7 @@ Contributions welcome. Please:
 - [ ] Debian / Ubuntu distro family support
 - [ ] `--json` output flag
 - [ ] HTML report generation
+- [x] ShellCheck clean — zero warnings across both scripts
 - [ ] GitHub Actions CI (ShellCheck + `bats` unit tests)
 - [ ] `vulnScan.conf` config file to toggle check categories
 - [ ] Modular `lib/*.sh` architecture for large-scale contributors
