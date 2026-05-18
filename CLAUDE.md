@@ -130,7 +130,7 @@ The following must never appear in any committed file:
 
 ## Development Notes
 
-- Test with `shellcheck vulnScan.sh` before committing — zero warnings target
+- Test with `shellcheck vulnScan.sh apply-hardening.sh` before committing — zero warnings required for both scripts
 - The script is read-only; it must not write files, modify configs, or run anything with side effects
 - Checks should prefer reading `/proc`, `/sys`, and config files over running commands where possible
 - `ss` is preferred over `netstat`; `ip` over `ifconfig`; `systemctl` over `service`
