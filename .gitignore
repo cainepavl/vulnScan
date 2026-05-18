@@ -5,3 +5,4 @@
 *.txt
 .env
 output/
+.claude/settings.local.json
