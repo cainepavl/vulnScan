@@ -224,7 +224,7 @@ For deeper background, these references align with vulnScan's check categories:
 Contributions welcome. Please:
 
 1. Fork the repo and create a branch (`git checkout -b feature/check-xyz`)
-2. Run `shellcheck vulnScan.sh` — zero warnings required
+2. Run `shellcheck vulnScan.sh apply-hardening.sh` — zero warnings required across both scripts
 3. Follow the comment style in the existing code (every check explains its rationale)
 4. Do not include any real system output, hostnames, IPs, or usernames in PRs
 5. Open a PR with a clear description of what the new check tests and why it matters
@@ -234,10 +234,10 @@ Contributions welcome. Please:
 ## Roadmap
 
 - [x] `apply-hardening.sh` — companion script to apply common remediations automatically
+- [x] ShellCheck clean — zero warnings across both scripts
 - [ ] Debian / Ubuntu distro family support
 - [ ] `--json` output flag
 - [ ] HTML report generation
-- [x] ShellCheck clean — zero warnings across both scripts
 - [ ] GitHub Actions CI (ShellCheck + `bats` unit tests)
 - [ ] `vulnScan.conf` config file to toggle check categories
 - [ ] Modular `lib/*.sh` architecture for large-scale contributors
