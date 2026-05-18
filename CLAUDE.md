@@ -1,5 +1,7 @@
 # vulnScan — CLAUDE.md
 
+**Current release:** v0.2.0
+
 ## Project Purpose
 
 `vulnScan` is a single-file interactive Bash security audit script for Fedora/RHEL/CentOS systems.
