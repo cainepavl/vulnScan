@@ -233,6 +233,7 @@ Contributions welcome. Please:
 
 ## Roadmap
 
+- [x] `apply-hardening.sh` — companion script to apply common remediations automatically
 - [ ] Debian / Ubuntu distro family support
 - [ ] `--json` output flag
 - [ ] HTML report generation
