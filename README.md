@@ -5,7 +5,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Shell: Bash 5+](https://img.shields.io/badge/shell-bash%205%2B-blue.svg)]()
 [![Platform: Fedora/RHEL](https://img.shields.io/badge/platform-Fedora%20%7C%20RHEL%20%7C%20CentOS-informational.svg)]()
-[![ShellCheck](https://img.shields.io/badge/shellcheck-passing-brightgreen.svg)]()
+[![ShellCheck](https://img.shields.io/badge/shellcheck-2%2F2%20scripts%20passing-brightgreen.svg)]()
 
 ---
 
