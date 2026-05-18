@@ -1,5 +1,13 @@
 #!/usr/bin/env bash
-# apply-hardening.sh — apply vulnScan remediation fixes
+# ==============================================================================
+# apply-hardening.sh — vulnScan Companion Remediation Script
+#
+# Version  : 0.2.0
+# License  : MIT
+# Platform : Fedora / RHEL / CentOS (bash 5+)
+# Project  : https://github.com/cainepavl/vulnScan
+# ==============================================================================
+#
 # Run as: sudo bash apply-hardening.sh
 # Safe to re-run (idempotent). Creates backups before any edit.
 
