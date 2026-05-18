@@ -15,11 +15,12 @@ Target audience: homelab users, sysadmins, security learners. The README is laye
 
 ```
 vulnScan/
-├── vulnScan.sh        # Primary script — single monolithic file
-├── CLAUDE.md          # This file
-├── README.md          # Public-facing documentation
-├── LICENSE            # MIT
-└── .gitignore         # Sanitization list (see below)
+├── vulnScan.sh           # Primary script — single monolithic file, read-only audit
+├── apply-hardening.sh    # Companion script — applies common remediations automatically
+├── CLAUDE.md             # This file
+├── README.md             # Public-facing documentation
+├── LICENSE               # MIT
+└── .gitignore            # Sanitization list (see below)
 ```
 
 ---
@@ -69,6 +70,34 @@ vulnScan/
 - `pause` function prints `"\n${BLUE}Press [Enter] to continue...${RESET}"` and calls `read -r`
 - Each check module starts with a full-width `print_header` banner showing the category name
 - Recommendations are printed inline under each WARN/FAIL, prefixed with `[REC]` in magenta
+
+---
+
+## Companion Script Architecture (`apply-hardening.sh`)
+
+`apply-hardening.sh` is a separate, root-required script that applies remediations for the most
+common findings produced by `vulnScan.sh`. It is **not** read-only — it writes files and restarts
+services. It must never be merged into `vulnScan.sh`.
+
+### Design Constraints
+
+- **Idempotent** — safe to re-run; existing values are updated in place, not duplicated
+- **Backups before every edit** — config files are copied with a `$(date +%Y%m%d%H%M%S)` suffix before modification
+- **Validate before restart** — `sshd -t` must pass before `sshd` is restarted; backup is restored on failure
+- **No silent failures** — every action reports `[OK]`, `[!!]`, or `[ERR]` with a reason
+- **Root enforced** — exits immediately with a clear error if `$EUID -ne 0`
+
+### Fix Sections (in order)
+
+1. **Kernel sysctl** — writes `/etc/sysctl.d/99-hardening.conf`, applies live with `sysctl --system`
+2. **SSH hardening** — sets `PermitRootLogin no`, `MaxAuthTries 3`, `X11Forwarding no` in `sshd_config`
+3. **Password & lockout policy** — `minlen = 14` in `pwquality.conf`; `deny = 5` in `faillock.conf`
+4. **Unnecessary services** — disables/stops `cups`, `cups-browsed`, `avahi-daemon`, `bluetooth`
+
+### Intentional Omissions
+
+- `PasswordAuthentication` is left unchanged — disabling it before SSH keys are deployed would lock out remote access
+- No package removal — too destructive and distro-specific to automate safely
 
 ---
 
@@ -122,6 +151,7 @@ The README is structured to serve three audiences:
 
 ## Future Work (tracked here, not in code)
 
+- [x] `apply-hardening.sh` — companion remediation script
 - [ ] Modular split into `lib/*.sh` for maintainability
 - [ ] `--json` output flag for integration with dashboards
 - [ ] HTML report generation
