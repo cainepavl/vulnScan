@@ -678,7 +678,7 @@ check_network_firewall() {
         else
             local ipt_rules=0
             if command -v iptables &>/dev/null; then
-                ipt_rules=$(iptables -L -n 2>/dev/null | grep -E '^Chain' | wc -l)
+                ipt_rules=$(iptables -L -n 2>/dev/null | grep -c '^Chain')
             fi
             if [[ "${ipt_rules}" -gt 3 ]]; then
                 print_pass "iptables is active with rules loaded"
@@ -1055,7 +1055,7 @@ check_logging_audit() {
         local audit_rules
         audit_rules=$(auditctl -l 2>/dev/null || echo "")
         local rule_count
-        rule_count=$(echo "${audit_rules}" | grep -E '^-' | wc -l)
+        rule_count=$(echo "${audit_rules}" | grep -c '^-')
 
         if [[ "${rule_count}" -le 2 ]]; then
             print_warn "auditd has very few rules loaded (${rule_count}) — few events will be captured"
@@ -1295,7 +1295,7 @@ check_containers() {
     # attacks being blocked by the policy. Either warrants investigation.
     if command -v ausearch &>/dev/null && [[ "$EUID" -eq 0 ]]; then
         local avc_count
-        avc_count=$(ausearch -m avc -ts today 2>/dev/null | grep -E '^----' | wc -l)
+        avc_count=$(ausearch -m avc -ts today 2>/dev/null | grep -c '^----')
         if [[ "${avc_count}" -eq 0 ]]; then
             print_pass "No SELinux AVC denials recorded today"
         elif [[ "${avc_count}" -lt 10 ]]; then
