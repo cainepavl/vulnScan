@@ -131,7 +131,7 @@ The following must never appear in any committed file:
 ## Development Notes
 
 - Test with `shellcheck vulnScan.sh apply-hardening.sh` before committing — zero warnings required for both scripts
-- The script is read-only; it must not write files, modify configs, or run anything with side effects
+- `vulnScan.sh` is read-only; it must not write files, modify configs, or run anything with side effects
 - Checks should prefer reading `/proc`, `/sys`, and config files over running commands where possible
 - `ss` is preferred over `netstat`; `ip` over `ifconfig`; `systemctl` over `service`
 - Fedora/RHEL primary: use `dnf`, `firewall-cmd`, `sestatus`, `dnf updateinfo`
@@ -152,6 +152,7 @@ The README is structured to serve three audiences:
 ## Future Work (tracked here, not in code)
 
 - [x] `apply-hardening.sh` — companion remediation script
+- [x] ShellCheck clean — zero warnings across both scripts
 - [ ] Modular split into `lib/*.sh` for maintainability
 - [ ] `--json` output flag for integration with dashboards
 - [ ] HTML report generation
