@@ -19,6 +19,10 @@ risk score** so you know exactly where your system stands.
 **vulnScan never modifies your system.** It reads configuration, inspects the kernel, and
 queries running services — but it does not write files, change settings, or restart anything.
 
+Once you have your results, a companion script — **`apply-hardening.sh`** — can automatically
+apply the most common fixes for you. Run it after the audit, then re-run the audit to see your
+improved score.
+
 ---
 
 ## Features
@@ -88,8 +92,8 @@ Each WARN finding adds **1 risk point**; each FAIL adds **3 risk points**.
 git clone https://github.com/cainepavl/vulnScan.git
 cd vulnScan
 
-# Make the script executable
-chmod +x vulnScan.sh
+# Make both scripts executable
+chmod +x vulnScan.sh apply-hardening.sh
 ```
 
 No dependencies to install beyond what ships with Fedora/RHEL by default.
@@ -121,6 +125,39 @@ sudo ./vulnScan.sh
 
 ---
 
+## Applying Fixes with apply-hardening.sh
+
+After reviewing your audit results, run the companion script to automatically apply the most
+common hardening remediations:
+
+```bash
+sudo bash apply-hardening.sh
+```
+
+The script works through **4 sections** in order:
+
+| Step | What It Does |
+|------|-------------|
+| **1/4 — Kernel sysctl** | Writes `/etc/sysctl.d/99-hardening.conf` with ~15 hardened kernel parameters (ASLR, ptrace scope, SYN cookies, ICMP redirect blocking, martian logging, and more) and applies them live via `sysctl --system` — no reboot needed |
+| **2/4 — SSH Hardening** | Sets `PermitRootLogin no`, `MaxAuthTries 3`, and `X11Forwarding no` in `sshd_config`; validates the config with `sshd -t` before restarting — restores the backup automatically if validation fails |
+| **3/4 — Password Policy** | Sets `minlen = 14` in `/etc/security/pwquality.conf` and `deny = 5` (lockout after 5 failed attempts) in `/etc/security/faillock.conf` |
+| **4/4 — Unnecessary Services** | Disables and stops `cups`, `cups-browsed`, `avahi-daemon`, and `bluetooth` if they are running or enabled |
+
+**Safety guarantees:**
+
+- **Idempotent** — safe to run more than once; existing values are updated, not duplicated
+- **Backups first** — every config file is backed up with a timestamp before it is touched (e.g. `sshd_config.bak.20260518143201`)
+- **Validation before restart** — SSH config is tested with `sshd -t`; if it fails the backup is restored and the daemon is not restarted
+- **PasswordAuthentication left unchanged** — disabling password auth before SSH keys are in place would lock you out; the script warns you to handle this step manually
+
+After `apply-hardening.sh` completes, re-run the audit to measure your improvement:
+
+```bash
+sudo bash vulnScan.sh
+```
+
+---
+
 ## Example Output
 
 ```
@@ -147,10 +184,15 @@ Press [Enter] to continue...
 
 ## Security Guarantees
 
+These guarantees apply to **`vulnScan.sh`** (the audit script):
+
 - **No writes:** The script never creates, modifies, or deletes any file on your system
 - **No network calls:** vulnScan is entirely offline — no telemetry, no update checks
 - **No `eval`:** The script avoids `eval` and other injection-prone constructs
 - **ShellCheck clean:** Linted with ShellCheck before every release
+
+**`apply-hardening.sh`** intentionally does write files and restart services — that is its
+purpose. Review the script before running it on any system you care about.
 
 ---
 
