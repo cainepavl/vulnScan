@@ -9,6 +9,9 @@
 [![ShellCheck](https://img.shields.io/badge/shellcheck-2%2F2%20scripts%20passing-brightgreen.svg)]()
 
 ---
+<p align="center">
+  <img src="vulnScan.png" alt="vulnScan" width="600">
+</p>
 
 ## What is vulnScan?
 
