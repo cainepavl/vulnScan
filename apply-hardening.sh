@@ -2,7 +2,7 @@
 # ==============================================================================
 # apply-hardening.sh — vulnScan Companion Remediation Script
 #
-# Version  : 0.2.0
+# Version  : 0.3.0
 # License  : MIT
 # Platform : Fedora / RHEL / CentOS (bash 5+)
 # Project  : https://github.com/cainepavl/vulnScan

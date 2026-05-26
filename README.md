@@ -2,7 +2,7 @@
 
 > An interactive, colorized Bash security audit tool for Fedora / RHEL / CentOS systems.
 
-[![Version](https://img.shields.io/badge/version-v0.2.0-blue.svg)](https://github.com/cainepavl/vulnScan/releases/tag/v0.2.0)
+[![Version](https://img.shields.io/badge/version-v0.3.0-blue.svg)](https://github.com/cainepavl/vulnScan/releases/tag/v0.3.0)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Shell: Bash 5+](https://img.shields.io/badge/shell-bash%205%2B-blue.svg)]()
 [![Platform: Fedora/RHEL](https://img.shields.io/badge/platform-Fedora%20%7C%20RHEL%20%7C%20CentOS-informational.svg)]()

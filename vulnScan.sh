@@ -2,7 +2,7 @@
 # ==============================================================================
 # vulnScan.sh — Interactive Linux Security Audit Tool
 #
-# Version  : 0.2.0
+# Version  : 0.3.0
 # License  : MIT
 # Platform : Fedora / RHEL / CentOS (bash 5+)
 # Project  : https://github.com/cainepavl/vulnScan
@@ -50,7 +50,7 @@ readonly WHITE='\033[1;37m'    # General text / prompts
 readonly DIM='\033[2m'         # Dimmed text (sub-labels, separators)
 readonly RESET='\033[0m'       # Reset all attributes
 
-readonly VERSION="0.2.0"
+readonly VERSION="0.3.0"
 readonly SCRIPT_NAME="vulnScan"
 
 # Score tracking — updated by the print_pass / print_warn / print_fail helpers.

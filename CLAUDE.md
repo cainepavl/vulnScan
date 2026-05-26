@@ -1,6 +1,6 @@
 # vulnScan — CLAUDE.md
 
-**Current release:** v0.2.0
+**Current release:** v0.3.0
 
 ## Project Purpose
 
