@@ -16,7 +16,7 @@
 ## What is vulnScan?
 
 `vulnScan` is a single-file, read-only Bash script that audits a Linux system against common
-security best practices. It walks you through **8 check categories** one section at a time,
+security best practices. It walks you through **9 check categories** one section at a time,
 displays results in color-coded PASS / WARN / FAIL format, and ends with an overall **numeric
 risk score** so you know exactly where your system stands.
 
@@ -31,7 +31,7 @@ improved score.
 
 ## Features
 
-- **8 security check categories** covering the full hardening surface
+- **9 security check categories** covering the full hardening surface
 - **Color-coded findings** — green PASS, yellow WARN, red FAIL
 - **Inline recommendations** for every WARN and FAIL finding
 - **Numeric risk score** (0–100) with a letter-grade summary at the end
@@ -56,6 +56,7 @@ improved score.
 | 6 | **Logging & Auditd** | `auditd` status and rules, `journald` config, log rotation, syslog integrity |
 | 7 | **Boot & Integrity** | GRUB password, Secure Boot / UEFI state, `initramfs` permissions |
 | 8 | **Container / VM Surface** | Docker daemon security, SELinux / AppArmor status, namespace isolation |
+| 9 | **Privilege Escalation** | Kernel CVEs (CVE-2022-27666, CVE-2026-31431, CVE-2026-43284 'Dirty Frag' ESP, CVE-2026-43500 'Dirty Frag' rxrpc), sudo NOPASSWD / gtfobins rules, Linux file capabilities |
 
 ---
 
@@ -170,7 +171,7 @@ sudo bash vulnScan.sh
 ║          Fedora 44 | 2026-05-16 | root               ║
 ╚══════════════════════════════════════════════════════╝
 
-─── [ 1/8 ] System Hardening ───────────────────────────
+─── [ 1/9 ] System Hardening ───────────────────────────
 
   [PASS] ASLR is enabled (kernel.randomize_va_space = 2)
   [PASS] Core dumps are restricted

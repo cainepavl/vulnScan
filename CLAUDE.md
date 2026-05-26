@@ -33,17 +33,20 @@ vulnScan/
 
 1. **Header block** — shebang, license notice, version, description
 2. **Global constants** — ANSI color codes, version string, score thresholds
-3. **Utility functions** — `print_header`, `print_pass`, `print_warn`, `print_fail`, `print_info`, `pause`
+3. **Utility functions** — `print_header`, `print_pass`, `print_warn`, `print_fail`, `print_info`, `pause`, `version_lt`
 4. **Privilege check** — warn if not root, offer `sudo` re-run
 5. **Check modules** (each is a named function, called sequentially from `main`):
-   - `check_system_hardening`   — sysctl, ASLR, core dumps, kernel params
-   - `check_user_auth`          — passwords, PAM, sudo, SSH keys, failed logins
-   - `check_network_firewall`   — open ports, firewalld rules, listening services
-   - `check_file_permissions`   — SUID/SGID, world-writable, /tmp, sensitive file perms
-   - `check_packages`           — outdated packages, unneeded services, CVE surface
-   - `check_logging_audit`      — auditd, journald, syslog, log rotation
-   - `check_boot_integrity`     — GRUB password, Secure Boot, UEFI, initramfs
-   - `check_containers`         — Docker daemon, namespace isolation, SELinux, AppArmor
+   - `check_system_hardening`        — sysctl, ASLR, core dumps, kernel params
+   - `check_user_auth`               — passwords, PAM, sudo, SSH keys, failed logins
+   - `check_network_firewall`        — open ports, firewalld rules, listening services
+   - `check_file_permissions`        — SUID/SGID, world-writable, /tmp, sensitive file perms
+   - `check_packages`                — outdated packages, unneeded services, CVE surface
+   - `check_logging_audit`           — auditd, journald, syslog, log rotation
+   - `check_boot_integrity`          — GRUB password, Secure Boot, UEFI, initramfs
+   - `check_containers`              — Docker daemon, namespace isolation, SELinux, AppArmor
+   - `check_privilege_escalation`    — kernel CVEs (CVE-2022-27666, CVE-2026-31431,
+                                       CVE-2026-43284, CVE-2026-43500), sudo NOPASSWD,
+                                       gtfobins-exploitable sudo rules, Linux file capabilities
 6. **Score summary** — tally PASS/WARN/FAIL counts, compute 0-100 risk score, print final report
 7. **`main`** — calls privilege check, runs modules in order with `pause` between each, prints summary
 
@@ -155,6 +158,7 @@ The README is structured to serve three audiences:
 
 - [x] `apply-hardening.sh` — companion remediation script
 - [x] ShellCheck clean — zero warnings across both scripts
+- [x] Privilege escalation module — kernel CVE checks (CVE-2022-27666, CVE-2026-31431, CVE-2026-43284, CVE-2026-43500), sudo misconfigs, Linux file capabilities
 - [ ] Modular split into `lib/*.sh` for maintainability
 - [ ] `--json` output flag for integration with dashboards
 - [ ] HTML report generation

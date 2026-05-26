@@ -180,6 +180,29 @@ sysctl_check() {
     fi
 }
 
+# ------------------------------------------------------------------------------
+# version_lt — Semantic version comparison: returns 0 (true) if $1 < $2.
+#
+# Relies on GNU sort -V (version-aware sort), which understands multi-segment
+# version strings like "5.16.15" or "6.18.28". Both arguments must be plain
+# "major.minor.patch" strings — distro suffixes must be stripped beforehand.
+#
+# Used exclusively by check_privilege_escalation() for kernel CVE range checks.
+#
+# Examples:
+#   version_lt "5.14.0" "5.16.15"  → true  (5.14.0 is older)
+#   version_lt "6.18.28" "6.18.28" → false (equal, not less-than)
+#   version_lt "7.0.5"  "6.18.28"  → false (7.0.5 is newer)
+#
+# Args: $1=version_a  $2=version_b
+# ------------------------------------------------------------------------------
+version_lt() {
+    # Sort both versions; if $1 sorts first (is smallest), it is less than $2.
+    # The equality guard prevents false positives when both strings are identical.
+    [[ "$1" != "$2" ]] && \
+        [[ "$(printf '%s\n' "$1" "$2" | sort -V | head -1)" == "$1" ]]
+}
+
 # ==============================================================================
 # ── SECTION 3: PRIVILEGE CHECK ────────────────────────────────────────────────
 # ==============================================================================
@@ -229,7 +252,7 @@ check_privileges() {
 # Reference: CIS RHEL Benchmark §3.x, NIST SP 800-123 §4.2
 
 check_system_hardening() {
-    print_header "1/8" "System Hardening — Kernel Parameters"
+    print_header "1/9" "System Hardening — Kernel Parameters"
 
     # ASLR (Address Space Layout Randomization)
     # Randomises where programs load into memory, making it much harder for an
@@ -380,7 +403,7 @@ check_system_hardening() {
 # Reference: CIS RHEL Benchmark §5.x, NIST SP 800-123 §4.3
 
 check_user_auth() {
-    print_header "2/8" "User & Authentication Security"
+    print_header "2/9" "User & Authentication Security"
 
     # UID-0 accounts (root-equivalent)
     # Any account with UID 0 has full root capability regardless of its name.
@@ -643,7 +666,7 @@ check_user_auth() {
 # Reference: CIS RHEL Benchmark §3.4, NIST SP 800-123 §4.4
 
 check_network_firewall() {
-    print_header "3/8" "Network & Firewall"
+    print_header "3/9" "Network & Firewall"
 
     # firewalld — Fedora/RHEL's primary firewall manager
     # A running firewall is the single most impactful network hardening measure.
@@ -769,7 +792,7 @@ check_network_firewall() {
 # Reference: CIS RHEL Benchmark §6.x
 
 check_file_permissions() {
-    print_header "4/8" "File & Permission Auditing"
+    print_header "4/9" "File & Permission Auditing"
 
     print_info "Scanning filesystem for permission issues (may take a moment)..."
     echo ""
@@ -915,7 +938,7 @@ check_file_permissions() {
 # Reference: CIS RHEL Benchmark §1.x, §2.x
 
 check_packages() {
-    print_header "5/8" "Package & Software Security"
+    print_header "5/9" "Package & Software Security"
 
     # Security-classified updates (dnf updateinfo)
     # dnf distinguishes security updates from general updates. Security updates
@@ -1035,7 +1058,7 @@ check_packages() {
 # Reference: CIS RHEL Benchmark §4.x, NIST SP 800-123 §4.5
 
 check_logging_audit() {
-    print_header "6/8" "Logging & Audit"
+    print_header "6/9" "Logging & Audit"
 
     # auditd — Linux Audit Daemon
     # auditd records security-relevant system calls and events to
@@ -1147,7 +1170,7 @@ check_logging_audit() {
 # Reference: CIS RHEL Benchmark §1.4–1.5, NIST SP 800-147
 
 check_boot_integrity() {
-    print_header "7/8" "Boot & Integrity"
+    print_header "7/9" "Boot & Integrity"
 
     # Secure Boot (UEFI)
     # Secure Boot validates the cryptographic signature of the bootloader and
@@ -1264,7 +1287,7 @@ check_boot_integrity() {
 # Reference: SELinux Project docs, CIS Docker Benchmark
 
 check_containers() {
-    print_header "8/8" "Container / VM Surface & SELinux"
+    print_header "8/9" "Container / VM Surface & SELinux"
 
     # SELinux status and enforcement mode
     # Enforcing = policies are active and block violations.
@@ -1371,12 +1394,418 @@ check_containers() {
 }
 
 # ==============================================================================
+# MODULE 9 — PRIVILEGE ESCALATION: KERNEL CVEs & SUDO VECTORS
+# ==============================================================================
+# This module audits the system for local privilege escalation (LPE) paths —
+# weaknesses that let an unprivileged user become root without stealing a
+# password. It is divided into two main areas:
+#
+# 1. KERNEL CVEs — Four known LPE vulnerabilities that affect the Linux kernel
+#    on Fedora/RHEL systems. For each CVE we check:
+#      a) Whether the running kernel version falls in the vulnerable range
+#      b) Whether the specific kernel module involved is loaded (which makes
+#         the vulnerability actively exploitable vs. merely latent)
+#
+#    CVE-2022-27666  — Heap buffer overflow in IPsec ESP transforms (esp4/esp6).
+#                      Fixed in kernel 5.16.15+.
+#    CVE-2026-31431  — 'Copy Fail': algif_aead page-cache write lets any user
+#                      overwrite setuid binaries. Fixed in 6.18.22 / 6.19.12 / 7.0+.
+#    CVE-2026-43284  — 'Dirty Frag' ESP: memory corruption in IPsec ESP
+#                      fragmentation. Fixed per LTS branch (see inline comments).
+#    CVE-2026-43500  — 'Dirty Frag' rxrpc: same class of bug in the AF_RXRPC
+#                      subsystem. Fixed in 6.18.29+ and 7.0.6+.
+#                      Not applicable on RHEL (rxrpc not shipped).
+#
+# 2. SUDO MISCONFIGURATIONS — Common sudo configuration errors that hand an
+#    attacker a trivial path to root once they have any local account:
+#      a) NOPASSWD entries — passwordless root for a user or group
+#      b) gtfobins-listed binaries — programs (vim, python, find …) that can
+#         be used to escape to a root shell even when invoked via sudo
+#      c) Missing hardening defaults — env_reset and secure_path prevent
+#         environment-variable injection during elevation
+#
+# 3. LINUX FILE CAPABILITIES — setcap can grant individual root capabilities
+#    (cap_setuid, cap_sys_admin) to ordinary binaries. If an attacker can
+#    execute such a binary they gain the listed privilege without any SUID.
+#
+# IMPORTANT NOTE ON RHEL / DISTRO KERNELS:
+#   RHEL, AlmaLinux, and Rocky Linux use distro-specific kernel packages that
+#   backport security fixes to a stable base version (e.g. 4.18.0-xxx, 5.14.0-xxx).
+#   Upstream version comparison will flag these kernels as "potentially vulnerable"
+#   even when the relevant CVE has been backported. Whenever a RHEL-style kernel
+#   is detected (uname -r contains .elN) an advisory note is appended telling the
+#   operator how to verify with: rpm -q --changelog kernel | grep CVE-XXXX-XXXXX
+#
+# Reference: NIST NVD, kernel.org security advisories, RedHat CVE DB
+
+check_privilege_escalation() {
+    print_header "9/9" "Privilege Escalation — Kernel CVEs & Sudo Vectors"
+
+    # ── Kernel version setup ──────────────────────────────────────────────────
+    # We need two forms of the kernel version:
+    #   kver_full — raw uname output, e.g. "5.16.20-200.fc35.x86_64"
+    #               Used to detect RHEL-style kernels (.elN suffix).
+    #   kver      — upstream semver only, e.g. "5.16.20"
+    #               Used with version_lt() for CVE range comparisons.
+    # We also pre-parse major/minor/patch so branch-specific comparisons
+    # (e.g. "is this 6.18.x >= 6.18.28?") can be done with integer arithmetic
+    # rather than repeated string sorts.
+    local kver_full kver vmajor vminor vpatch
+    kver_full=$(uname -r)
+    kver=$(printf '%s' "$kver_full" | sed 's/-.*//')   # strip distro suffix
+    IFS='.' read -r vmajor vminor vpatch <<< "$kver"
+    vpatch="${vpatch:-0}"   # guard: some kernels have no patch segment (e.g. "5.14")
+
+    # Build a per-CVE RHEL advisory note. When the kernel has a .elN suffix we
+    # cannot trust the upstream version comparison alone — patches are backported.
+    # We embed the CVE number at the placeholder so each check gets a tidy note.
+    local rhel_note=""
+    if [[ "$kver_full" =~ \.el[0-9] ]]; then
+        rhel_note=" [RHEL kernel: backported patches may apply — verify with:"
+        rhel_note+=" rpm -q --changelog kernel | grep CVE-XXXX-XXXXX]"
+    fi
+
+    # Pre-check: are IPsec ESP modules (esp4, esp6) currently loaded?
+    # Both CVE-2022-27666 and CVE-2026-43284 live in the ESP code path.
+    # An unloaded module means the vulnerable code is not reachable from
+    # userspace, reducing exploitability — but the kernel is still unpatched.
+    local esp_loaded="no"
+    grep -qE '^(esp4|esp6)[[:space:]]' /proc/modules 2>/dev/null && esp_loaded="yes"
+
+    # ── CVE-2022-27666 — IPsec ESP heap overflow ──────────────────────────────
+    # A heap buffer overflow exists in net/ipv4/esp4.c and net/ipv6/esp6.c.
+    # The root cause is that esp6_output_head() allocated a buffer using
+    # skb_page_frag_refill() but did not account for the extra bytes needed by
+    # esp_output_udp_encap(). A local user with the CAP_NET_ADMIN capability
+    # (or in some configurations, even without it) could craft an ESP packet to
+    # overwrite kernel heap memory and elevate to root.
+    #
+    # CVSS: 7.8 (HIGH) — Local / Low complexity / No privileges required
+    # Fixed: Linux 5.16.15 (commit ebe48d368e97) and 5.17-rc8 (March 2022)
+    # References: NVD CVE-2022-27666, RedHat BZ#2061633
+    local note_27666="${rhel_note/CVE-XXXX-XXXXX/CVE-2022-27666}"
+    if version_lt "$kver" "5.16.15"; then
+        if [[ "$esp_loaded" == "yes" ]]; then
+            # Vulnerable kernel + ESP modules loaded = actively exploitable path
+            print_fail "CVE-2022-27666: Kernel ${kver} < 5.16.15 and esp4/esp6 loaded — ESP heap overflow is reachable${note_27666}"
+            print_rec  "Update kernel ('dnf update kernel' + reboot). Interim: 'modprobe -r esp4 esp6' to unload ESP modules"
+        else
+            # Vulnerable kernel but ESP code is not in the running kernel image —
+            # reduced exploitability, but the system is still unpatched.
+            print_warn "CVE-2022-27666: Kernel ${kver} < 5.16.15 — IPsec ESP heap overflow; esp4/esp6 not currently loaded${note_27666}"
+            print_rec  "Update kernel: 'dnf update kernel' and reboot. Fixed in kernel >= 5.16.15"
+        fi
+    else
+        print_pass "CVE-2022-27666: Kernel ${kver} >= 5.16.15 — IPsec ESP heap overflow patched"
+    fi
+
+    # ── CVE-2026-31431 — 'Copy Fail' (algif_aead page-cache write) ───────────
+    # A logic flaw in the kernel's AF_ALG (userspace crypto API) socket
+    # interface — specifically in algif_aead.c — allows a local unprivileged
+    # user to write to arbitrary read-only page-cache pages. An exploit chains
+    # AF_ALG socket operations with splice() to target setuid binaries such as
+    # /usr/bin/su, overwriting them in the page cache without touching disk, and
+    # then executes the modified binary to gain root. The exploit is ~730 bytes,
+    # deterministic (no race, no heap spray), and works on any kernel in range.
+    #
+    # CVSS: 7.8 (HIGH) — Local / Low complexity / No privileges required
+    # Vulnerable range: kernel 4.14 to < 7.0, with two patched sub-ranges:
+    #   6.18.22+ (LTS branch) and 6.19.12+ (short-lived branch)
+    # Fixed: 6.18.22, 6.19.12, 7.0+ (commit a664bf3d603d, May 2026)
+    # References: NVD CVE-2026-31431, CERT-EU 2026-005, Sysdig blog
+
+    # Check whether the algif_aead module is present (loaded or built-in).
+    # If loaded (/proc/modules) or compiled in (/boot/config), the vulnerable
+    # code path is reachable; an absent module means exploitability is reduced.
+    local algif_present="no"
+    grep -q '^algif_aead[[:space:]]' /proc/modules 2>/dev/null && algif_present="yes"
+    if grep -qE '^CONFIG_CRYPTO_USER_API_AEAD=[ym]' "/boot/config-${kver_full}" 2>/dev/null; then
+        algif_present="yes"
+    fi
+
+    # Determine whether the running kernel is in the vulnerable range.
+    # Start by assuming it is, then check for the known-patched sub-versions.
+    local in_range_31431="no"
+    if ! version_lt "$kver" "4.14" && version_lt "$kver" "7.0"; then
+        in_range_31431="yes"
+        # 6.18.x is patched at patch level 22; 6.19.x is patched at level 12
+        if   [[ "${vmajor}.${vminor}" == "6.18" && "${vpatch}" -ge 22 ]]; then in_range_31431="no"
+        elif [[ "${vmajor}.${vminor}" == "6.19" && "${vpatch}" -ge 12 ]]; then in_range_31431="no"
+        fi
+    fi
+
+    local note_31431="${rhel_note/CVE-XXXX-XXXXX/CVE-2026-31431}"
+    if [[ "$in_range_31431" == "yes" ]]; then
+        if [[ "$algif_present" == "yes" ]]; then
+            print_fail "CVE-2026-31431 'Copy Fail': Kernel ${kver} vulnerable and algif_aead is present — page-cache write to setuid binaries possible${note_31431}"
+            print_rec  "Update kernel: 'dnf update kernel' + reboot. Fixed in 6.18.22, 6.19.12, 7.0+"
+        else
+            # In the vulnerable version range, but algif_aead is not confirmed
+            # present. Could be not loaded yet or not compiled in. Still WARN
+            # because the kernel itself is unpatched.
+            print_warn "CVE-2026-31431 'Copy Fail': Kernel ${kver} is in the vulnerable range (4.14–7.0); algif_aead state not confirmed loaded${note_31431}"
+            print_rec  "Update kernel: 'dnf update kernel'. Verify fix: 'dnf updateinfo list security | grep CVE-2026-31431'"
+        fi
+    else
+        print_pass "CVE-2026-31431 'Copy Fail': Kernel ${kver} — not in the vulnerable range"
+    fi
+
+    # ── CVE-2026-43284 — 'Dirty Frag' ESP ────────────────────────────────────
+    # A memory corruption vulnerability in the IPsec ESP fragmentation code path
+    # (net/ipv4/esp4.c, net/ipv6/esp6.c). When IPsec reassembles fragmented ESP
+    # packets it can write beyond the allocated buffer boundary, corrupting kernel
+    # heap memory. A local user with access to the ESP socket interface can
+    # trigger this to gain root. Introduced by commit cac2661c53f3 (Jan 2017).
+    #
+    # CVSS: 7.8 (HIGH) — Local / Low complexity
+    # Earliest vulnerable: kernel 4.11 (commit cac2661c53f3)
+    # Fixed versions per LTS branch:
+    #   5.10.255+  |  5.15.205+  |  6.1.171+  |  6.6.138+
+    #   6.12.87+   |  6.18.28+   |  7.0.5+
+    # RHEL fixed versions (from vendor advisories):
+    #   RHEL 8  — kernel-4.18.0-553.123.2.el8_10+
+    #   RHEL 9  — kernel-5.14.0-611.54.3.el9_7+
+    #   RHEL 10 — kernel-6.12.0-124.55.3.el10_1+
+    # References: NVD CVE-2026-43284, Sysdig 'Dirty Frag' blog
+
+    # Walk through the known-fixed LTS branches. Kernels NOT matching any fixed
+    # branch are reported as "not in a known-patched version" (conservative).
+    local cve43284_fixed="no"
+    if version_lt "$kver" "4.11"; then
+        # Pre-dates the commit that introduced the bug
+        cve43284_fixed="pre"
+    elif [[ "$vmajor" -eq 5 && "$vminor" -eq 10 && "$vpatch" -ge 255 ]]; then cve43284_fixed="yes"
+    elif [[ "$vmajor" -eq 5 && "$vminor" -eq 15 && "$vpatch" -ge 205 ]]; then cve43284_fixed="yes"
+    elif [[ "$vmajor" -eq 6 && "$vminor" -eq 1  && "$vpatch" -ge 171 ]]; then cve43284_fixed="yes"
+    elif [[ "$vmajor" -eq 6 && "$vminor" -eq 6  && "$vpatch" -ge 138 ]]; then cve43284_fixed="yes"
+    elif [[ "$vmajor" -eq 6 && "$vminor" -eq 12 && "$vpatch" -ge 87  ]]; then cve43284_fixed="yes"
+    elif [[ "$vmajor" -eq 6 && "$vminor" -eq 18 && "$vpatch" -ge 28  ]]; then cve43284_fixed="yes"
+    elif ! version_lt "$kver" "7.0.5"; then
+        # All kernels >= 7.0.5 are patched (7.0.5 is the first fixed 7.x release)
+        cve43284_fixed="yes"
+    fi
+
+    local note_43284="${rhel_note/CVE-XXXX-XXXXX/CVE-2026-43284}"
+    case "$cve43284_fixed" in
+        pre)
+            # Kernel predates the vulnerable commit — not at risk
+            print_pass "CVE-2026-43284 'Dirty Frag' ESP: Kernel ${kver} pre-dates the vulnerable commit (< 4.11)"
+            ;;
+        yes)
+            # Kernel is in a known-patched LTS branch version
+            print_pass "CVE-2026-43284 'Dirty Frag' ESP: Kernel ${kver} is in a known-patched LTS version"
+            ;;
+        *)
+            # Kernel is either in a vulnerable range or a non-LTS branch where
+            # the patch status cannot be confirmed by version number alone.
+            if [[ "$esp_loaded" == "yes" ]]; then
+                print_fail "CVE-2026-43284 'Dirty Frag' ESP: Kernel ${kver} not in a known-patched version; esp4/esp6 loaded — actively exploitable${note_43284}"
+                print_rec  "Update: 'dnf update kernel'. Fixed in 5.10.255, 5.15.205, 6.1.171, 6.6.138, 6.12.87, 6.18.28, 7.0.5+"
+            else
+                print_warn "CVE-2026-43284 'Dirty Frag' ESP: Kernel ${kver} not in a known-patched version range${note_43284}"
+                print_rec  "Update: 'dnf update kernel'. Verify: 'dnf updateinfo list security | grep CVE-2026-43284'"
+            fi
+            ;;
+    esac
+
+    # ── CVE-2026-43500 — 'Dirty Frag' rxrpc ──────────────────────────────────
+    # Same class of memory-corruption bug as CVE-2026-43284, but in the rxrpc
+    # subsystem (AF_RXRPC sockets, used by AFS / Kerberos). When the rxrpc
+    # module reassembles fragmented RxRPC packets it can overflow its allocation,
+    # enabling a local user to corrupt kernel memory for root escalation.
+    #
+    # IMPORTANT: The rxrpc module is NOT shipped in standard RHEL distributions.
+    # This check is therefore skipped on RHEL-family kernels (.elN suffix).
+    #
+    # CVSS: 7.8 (HIGH) — Local / Low complexity
+    # Earliest vulnerable: kernel 5.3 (introduced June 2023)
+    # Fixed: 6.18.29+, 7.0.6+
+    # References: NVD CVE-2026-43500, Sysdig 'Dirty Frag' blog
+
+    if [[ "$kver_full" =~ \.el[0-9] ]]; then
+        # rxrpc is not included in the RHEL kernel package; skip gracefully
+        print_info "CVE-2026-43500 'Dirty Frag' rxrpc: rxrpc module not shipped in RHEL kernels — check not applicable"
+    else
+        # Check whether the rxrpc module is currently loaded in the running kernel
+        local rxrpc_loaded="no"
+        grep -q '^rxrpc[[:space:]]' /proc/modules 2>/dev/null && rxrpc_loaded="yes"
+
+        # Determine if kernel is in the vulnerable version range.
+        # Vulnerable: 5.3 to < 7.0, excluding 6.18.29+.
+        # Also safe: kernel >= 7.0.6 (the 7.0-series fix), or any 7.1+.
+        local in_range_43500="no"
+        if ! version_lt "$kver" "5.3" && version_lt "$kver" "7.0"; then
+            in_range_43500="yes"
+            # 6.18.29 and later in the 6.18 branch are patched
+            if [[ "${vmajor}.${vminor}" == "6.18" && "${vpatch}" -ge 29 ]]; then
+                in_range_43500="no"
+            fi
+        fi
+        # Kernels >= 7.0.6 are also patched
+        if [[ "$vmajor" -eq 7 && "$vminor" -eq 0 && "$vpatch" -ge 6 ]] ||
+           [[ "$vmajor" -eq 7 && "$vminor" -ge 1 ]] ||
+           [[ "$vmajor" -gt 7 ]]; then
+            in_range_43500="no"
+        fi
+
+        if [[ "$in_range_43500" == "yes" ]]; then
+            if [[ "$rxrpc_loaded" == "yes" ]]; then
+                print_fail "CVE-2026-43500 'Dirty Frag' rxrpc: Kernel ${kver} vulnerable and rxrpc module is loaded — actively exploitable"
+                print_rec  "Update: 'dnf update kernel'. Fixed in 6.18.29+, 7.0.6+"
+            else
+                print_warn "CVE-2026-43500 'Dirty Frag' rxrpc: Kernel ${kver} in vulnerable range (5.3–7.0); rxrpc not currently loaded"
+                print_rec  "Update: 'dnf update kernel'. Verify: 'dnf updateinfo list security | grep CVE-2026-43500'"
+            fi
+        else
+            print_pass "CVE-2026-43500 'Dirty Frag' rxrpc: Kernel ${kver} — not in the vulnerable range"
+        fi
+    fi
+
+    # ── Sudo: NOPASSWD entries ────────────────────────────────────────────────
+    # A NOPASSWD sudo entry allows the named user or group to run the specified
+    # command as root without supplying a password. If an attacker compromises
+    # that account — even via a low-severity bug elsewhere — they get root for
+    # free. NOPASSWD should only ever be used for automated/service accounts on
+    # a strictly limited command set, and never for interactive user accounts.
+    local nopasswd_lines
+    nopasswd_lines=$(grep -rh 'NOPASSWD' /etc/sudoers /etc/sudoers.d/ 2>/dev/null \
+                     | grep -v '^[[:space:]]*#' || true)
+    if [[ -n "$nopasswd_lines" ]]; then
+        print_fail "sudo has NOPASSWD entries — root access requires no password for affected accounts"
+        print_rec  "Edit /etc/sudoers via 'visudo'; remove NOPASSWD or restrict to specific safe commands only"
+    else
+        print_pass "No NOPASSWD entries in sudo configuration"
+    fi
+
+    # ── Sudo: dangerous gtfobins-listed binaries ──────────────────────────────
+    # Many standard Unix programs can be used to spawn a root shell or read/write
+    # arbitrary files when invoked via sudo — even if the sudo rule looks narrow.
+    # See gtfobins.github.io for the full technique catalogue. Common examples:
+    #   vim   → :!/bin/bash (shell escape)
+    #   python → -c "import os; os.setuid(0); os.system('/bin/bash')"
+    #   find  → -exec /bin/bash \; (execute as root)
+    #   less  → !/bin/bash (shell escape from pager)
+    # We scan sudoers content for any of these binaries. A match is a WARN even
+    # if the rule looks restricted (e.g. "user ALL=(root) /usr/bin/vim /etc/foo")
+    # because many such restrictions are bypassable in practice.
+    local sudoers_content
+    sudoers_content=$(grep -rh '^[^#]' /etc/sudoers /etc/sudoers.d/ 2>/dev/null || true)
+
+    # The following list covers the most commonly abused binaries per gtfobins.
+    # Each can be leveraged for shell escape, arbitrary file read, or file write.
+    local -a gtfobins=(
+        vim vi nano less more
+        python python3 perl ruby lua php
+        find awk nmap socat nc netcat
+        bash sh dash env xargs tee
+    )
+    local gtfo_found="no"
+    for bin in "${gtfobins[@]}"; do
+        # Match the binary name when it appears as a path component or standalone,
+        # preceded by a space or slash, and followed by space/comma/EOL.
+        if printf '%s\n' "$sudoers_content" \
+           | grep -qE "(^|[[:space:]]|/)${bin}([[:space:]]|,|$)"; then
+            print_warn "sudo allows '${bin}' — can be abused for privilege escalation (gtfobins)"
+            print_rec  "Remove '${bin}' from sudoers if not strictly required; see gtfobins.github.io/#${bin}"
+            gtfo_found="yes"
+        fi
+    done
+    [[ "$gtfo_found" == "no" ]] && \
+        print_pass "No known gtfobins-exploitable binaries found in sudo configuration"
+
+    # ── Sudo: hardening defaults ──────────────────────────────────────────────
+    # Two sudo Defaults settings significantly reduce the escalation surface:
+    #
+    #   env_reset — Clears the environment before running the elevated command.
+    #               Without this, a user can set LD_PRELOAD or LD_LIBRARY_PATH
+    #               to inject malicious code into the privileged process.
+    #
+    #   secure_path — Replaces PATH for the elevated command with a known-good
+    #                 list. Without this, a user who controls a directory earlier
+    #                 in PATH can shadow system binaries (e.g. a fake 'ls' that
+    #                 spawns a shell when run by root).
+    local sudoers_defaults
+    sudoers_defaults=$(grep -rh '^Defaults' /etc/sudoers /etc/sudoers.d/ 2>/dev/null || true)
+
+    if ! printf '%s\n' "$sudoers_defaults" | grep -q 'env_reset'; then
+        print_warn "sudo 'Defaults env_reset' is not set — environment variables may be inherited by elevated processes"
+        print_rec  "Add 'Defaults env_reset' to /etc/sudoers via 'visudo'"
+    else
+        print_pass "sudo 'Defaults env_reset' is set — calling environment is cleared on elevation"
+    fi
+
+    if ! printf '%s\n' "$sudoers_defaults" | grep -q 'secure_path'; then
+        print_warn "sudo 'Defaults secure_path' is not set — PATH hijacking during sudo execution may be possible"
+        print_rec  "Add 'Defaults secure_path=\"/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin\"'"
+    else
+        print_pass "sudo 'Defaults secure_path' is set — PATH is sanitized during elevation"
+    fi
+
+    # ── Linux file capabilities ───────────────────────────────────────────────
+    # Linux capabilities allow binaries to hold specific root powers without
+    # being full SUID root. This is intended to reduce over-privilege, but if
+    # a dangerous capability is set on the wrong binary (or any user-writable
+    # binary), an attacker can exploit it to escalate to root.
+    #
+    # High-risk capabilities:
+    #   cap_setuid     — Can change process UID to 0 (effectively become root)
+    #   cap_sys_admin  — Broad admin rights; often equivalent to full root
+    #
+    # Medium-risk capabilities worth reviewing:
+    #   cap_dac_override       — Bypass all filesystem permission checks
+    #   cap_dac_read_search    — Read any file, bypass directory permissions
+    #   cap_net_raw            — Use raw/packet sockets (sniffing, spoofing)
+    #   cap_net_bind_service   — Bind to ports < 1024 (expected on specific bins)
+    if ! command -v getcap &>/dev/null; then
+        print_skip "getcap not available — file capability check skipped (install libcap or libcap2-bin)"
+        return
+    fi
+
+    # Scan all mounted filesystems for capability-bearing binaries.
+    # getcap -r / descends recursively; errors (e.g. permission denied) are
+    # suppressed since we are only interested in files we can observe.
+    local caps_output
+    caps_output=$(getcap -r / 2>/dev/null || true)
+
+    if [[ -z "$caps_output" ]]; then
+        print_pass "No files with elevated Linux capabilities found on this system"
+        return
+    fi
+
+    # Parse each line: "path = cap_xxx+eip" — extract path and capability string
+    local caps_found="no"
+    while IFS= read -r cap_line; do
+        [[ -z "$cap_line" ]] && continue
+
+        # Split on first space: everything before is the path, rest is the cap string
+        local cap_path cap_caps
+        cap_path=$(printf '%s' "$cap_line" | awk '{print $1}')
+        cap_caps=$(printf '%s' "$cap_line" | cut -d' ' -f2-)
+
+        if printf '%s' "$cap_caps" | grep -qE 'cap_setuid|cap_sys_admin'; then
+            # These capabilities can directly become root — treat as FAIL
+            print_fail "Dangerous capability on ${cap_path}: ${cap_caps}"
+            print_rec  "Remove with: 'setcap -r ${cap_path}' (verify the binary does not legitimately require it first)"
+            caps_found="yes"
+        elif printf '%s' "$cap_caps" | grep -qE 'cap_dac_override|cap_dac_read_search|cap_net_raw|cap_net_bind_service'; then
+            # Elevated but not immediately root-giving — warrant manual review
+            print_warn "Elevated capability on ${cap_path}: ${cap_caps}"
+            print_rec  "Review whether ${cap_path} legitimately requires this capability; remove if not"
+            caps_found="yes"
+        fi
+    done <<< "$caps_output"
+
+    [[ "$caps_found" == "no" ]] && \
+        print_pass "No dangerous file capabilities (cap_setuid, cap_sys_admin, etc.) found"
+}
+
+# ==============================================================================
 # ── SECTION 5: FINAL SCORE & SUMMARY ──────────────────────────────────────────
 # ==============================================================================
 
 # ------------------------------------------------------------------------------
 # print_summary — Compute the risk score and display the final graded report.
-# Called once, after all 8 modules have completed.
+# Called once, after all 9 modules have completed.
 # ------------------------------------------------------------------------------
 print_summary() {
     # Risk score: percentage of max possible risk points actually accumulated.
@@ -1453,20 +1882,21 @@ main() {
     check_privileges
 
     echo ""
-    echo -e "  ${WHITE}Starting audit across 8 categories.${RESET}"
+    echo -e "  ${WHITE}Starting audit across 9 categories.${RESET}"
     echo -e "  ${WHITE}Press [Enter] after each section to advance.${RESET}"
     echo ""
     echo -ne "  ${BLUE}Press [Enter] to begin...${RESET}"
     read -r _start_dummy
 
-    check_system_hardening;  pause
-    check_user_auth;         pause
-    check_network_firewall;  pause
-    check_file_permissions;  pause
-    check_packages;          pause
-    check_logging_audit;     pause
-    check_boot_integrity;    pause
-    check_containers
+    check_system_hardening;       pause
+    check_user_auth;              pause
+    check_network_firewall;       pause
+    check_file_permissions;       pause
+    check_packages;               pause
+    check_logging_audit;          pause
+    check_boot_integrity;         pause
+    check_containers;             pause
+    check_privilege_escalation
 
     print_summary
 }
