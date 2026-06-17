@@ -18,7 +18,7 @@ Target audience: homelab users, sysadmins, security learners. The README is laye
 ```
 vulnScan/
 ├── vulnScan.sh           # Primary script — single monolithic file, read-only audit
-├── apply-hardening.sh    # Companion script — applies common remediations automatically
+├── apply_hardening.sh    # Companion script — applies common remediations automatically
 ├── CLAUDE.md             # This file
 ├── README.md             # Public-facing documentation
 ├── LICENSE               # MIT
@@ -78,9 +78,9 @@ vulnScan/
 
 ---
 
-## Companion Script Architecture (`apply-hardening.sh`)
+## Companion Script Architecture (`apply_hardening.sh`)
 
-`apply-hardening.sh` is a separate, root-required script that applies remediations for the most
+`apply_hardening.sh` is a separate, root-required script that applies remediations for the most
 common findings produced by `vulnScan.sh`. It is **not** read-only — it writes files and restarts
 services. It must never be merged into `vulnScan.sh`.
 
@@ -135,7 +135,7 @@ The following must never appear in any committed file:
 
 ## Development Notes
 
-- Test with `shellcheck vulnScan.sh apply-hardening.sh` before committing — zero warnings required for both scripts
+- Test with `shellcheck vulnScan.sh apply_hardening.sh` before committing — zero warnings required for both scripts
 - `vulnScan.sh` is read-only; it must not write files, modify configs, or run anything with side effects
 - Checks should prefer reading `/proc`, `/sys`, and config files over running commands where possible
 - `ss` is preferred over `netstat`; `ip` over `ifconfig`; `systemctl` over `service`
@@ -156,7 +156,7 @@ The README is structured to serve three audiences:
 
 ## Future Work (tracked here, not in code)
 
-- [x] `apply-hardening.sh` — companion remediation script
+- [x] `apply_hardening.sh` — companion remediation script
 - [x] ShellCheck clean — zero warnings across both scripts
 - [x] Privilege escalation module — kernel CVE checks (CVE-2022-27666, CVE-2026-31431, CVE-2026-43284, CVE-2026-43500), sudo misconfigs, Linux file capabilities
 - [ ] Modular split into `lib/*.sh` for maintainability

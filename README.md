@@ -1,4 +1,4 @@
-# vulnScan
+# 🕵️ vulnScan
 
 > An interactive, colorized Bash security audit tool for Fedora / RHEL / CentOS systems.
 
@@ -13,7 +13,7 @@
   <img src="vulnScan.png" alt="vulnScan" width="600">
 </p>
 
-## What is vulnScan?
+## 🔍 What is vulnScan?
 
 `vulnScan` is a single-file, read-only Bash script that audits a Linux system against common
 security best practices. It walks you through **9 check categories** one section at a time,
@@ -23,13 +23,13 @@ risk score** so you know exactly where your system stands.
 **vulnScan never modifies your system.** It reads configuration, inspects the kernel, and
 queries running services — but it does not write files, change settings, or restart anything.
 
-Once you have your results, a companion script — **`apply-hardening.sh`** — can automatically
+Once you have your results, a companion script — **`apply_hardening.sh`** — can automatically
 apply the most common fixes for you. Run it after the audit, then re-run the audit to see your
 improved score.
 
 ---
 
-## Features
+## ✨ Features
 
 - **9 security check categories** covering the full hardening surface
 - **Color-coded findings** — green PASS, yellow WARN, red FAIL
@@ -44,7 +44,7 @@ improved score.
 
 ---
 
-## Check Categories
+## 📋 Check Categories
 
 | # | Category | What It Covers |
 |---|----------|----------------|
@@ -60,7 +60,7 @@ improved score.
 
 ---
 
-## Risk Scoring
+## 📊 Risk Scoring
 
 After all checks complete, vulnScan calculates a **risk score from 0 to 100**:
 
@@ -76,7 +76,7 @@ Each WARN finding adds **1 risk point**; each FAIL adds **3 risk points**.
 
 ---
 
-## Requirements
+## ⚙️ Requirements
 
 | Requirement | Notes |
 |-------------|-------|
@@ -90,7 +90,7 @@ Each WARN finding adds **1 risk point**; each FAIL adds **3 risk points**.
 
 ---
 
-## Installation
+## 🛠️ Installation
 
 ```bash
 # Clone the repo
@@ -98,14 +98,14 @@ git clone https://github.com/cainepavl/vulnScan.git
 cd vulnScan
 
 # Make both scripts executable
-chmod +x vulnScan.sh apply-hardening.sh
+chmod +x vulnScan.sh apply_hardening.sh
 ```
 
 No dependencies to install beyond what ships with Fedora/RHEL by default.
 
 ---
 
-## Usage
+## 🚀 Usage
 
 ### Basic run (recommended — requires root)
 
@@ -130,13 +130,13 @@ sudo ./vulnScan.sh
 
 ---
 
-## Applying Fixes with apply-hardening.sh
+## 🔧 Applying Fixes with apply_hardening.sh
 
 After reviewing your audit results, run the companion script to automatically apply the most
 common hardening remediations:
 
 ```bash
-sudo bash apply-hardening.sh
+sudo bash apply_hardening.sh
 ```
 
 The script works through **4 sections** in order:
@@ -155,7 +155,7 @@ The script works through **4 sections** in order:
 - **Validation before restart** — SSH config is tested with `sshd -t`; if it fails the backup is restored and the daemon is not restarted
 - **PasswordAuthentication left unchanged** — disabling password auth before SSH keys are in place would lock you out; the script warns you to handle this step manually
 
-After `apply-hardening.sh` completes, re-run the audit to measure your improvement:
+After `apply_hardening.sh` completes, re-run the audit to measure your improvement:
 
 ```bash
 sudo bash vulnScan.sh
@@ -163,7 +163,7 @@ sudo bash vulnScan.sh
 
 ---
 
-## Example Output
+## 📸 Example Output
 
 ```
 ╔══════════════════════════════════════════════════════╗
@@ -187,7 +187,7 @@ Press [Enter] to continue...
 
 ---
 
-## Security Guarantees
+## 🛡️ Security Guarantees
 
 These guarantees apply to **`vulnScan.sh`** (the audit script):
 
@@ -196,12 +196,12 @@ These guarantees apply to **`vulnScan.sh`** (the audit script):
 - **No `eval`:** The script avoids `eval` and other injection-prone constructs
 - **ShellCheck clean:** Linted with ShellCheck before every release
 
-**`apply-hardening.sh`** intentionally does write files and restart services — that is its
+**`apply_hardening.sh`** intentionally does write files and restart services — that is its
 purpose. Review the script before running it on any system you care about.
 
 ---
 
-## For Security Learners
+## 🎓 For Security Learners
 
 Each check in the script includes a comment explaining **why** it matters, not just **what** it checks.
 Reading through the source is itself a learning exercise.
@@ -215,7 +215,7 @@ For deeper background, these references align with vulnScan's check categories:
 
 ---
 
-## For Sysadmins
+## 🖥️ For Sysadmins
 
 - vulnScan is safe to run on production systems — it is strictly read-only
 - Schedule it via `cron` or `systemd timer` to get periodic snapshots (pipe to a file with `--no-color`, coming soon)
@@ -224,21 +224,21 @@ For deeper background, these references align with vulnScan's check categories:
 
 ---
 
-## Contributing
+## 🔧 Contributing
 
 Contributions welcome. Please:
 
 1. Fork the repo and create a branch (`git checkout -b feature/check-xyz`)
-2. Run `shellcheck vulnScan.sh apply-hardening.sh` — zero warnings required across both scripts
+2. Run `shellcheck vulnScan.sh apply_hardening.sh` — zero warnings required across both scripts
 3. Follow the comment style in the existing code (every check explains its rationale)
 4. Do not include any real system output, hostnames, IPs, or usernames in PRs
 5. Open a PR with a clear description of what the new check tests and why it matters
 
 ---
 
-## Roadmap
+## 🗺️ Roadmap
 
-- [x] `apply-hardening.sh` — companion script to apply common remediations automatically
+- [x] `apply_hardening.sh` — companion script to apply common remediations automatically
 - [x] ShellCheck clean — zero warnings across both scripts
 - [ ] Debian / Ubuntu distro family support
 - [ ] `--json` output flag
@@ -249,14 +249,36 @@ Contributions welcome. Please:
 
 ---
 
-## License
+## 📄 License
 
 [MIT License](LICENSE) — free to use, modify, and distribute with attribution.
 
 ---
 
-## Disclaimer
+## ⚠️ Limitations
+
+- **`apply_hardening.sh` idempotency caveat:** The idempotency guards for `minlen` in `pwquality.conf` and `deny` in `faillock.conf` match only unindented keys (`^minlen`, `^deny`). On a system where those values have leading whitespace the guard silently fails and the value gets appended a second time. Re-running the script is safe to clean up — but if your configs use non-standard indentation, edit those two values manually instead.
+
+- **Docker Content Trust detection:** The Docker Content Trust check reads `docker info` output and matches the string `Content Trust: true`. Docker's output format varies across versions; if your Docker version formats this line differently, the check may report a false WARN. Verify independently with `echo $DOCKER_CONTENT_TRUST` or by inspecting `/etc/docker/daemon.json`.
+
+- **RHEL / distro kernel CVE checks:** RHEL, AlmaLinux, and Rocky Linux backport security fixes to stable kernel packages without bumping the upstream version number. CVE checks based on version ranges will flag these kernels as *potentially* vulnerable even when the patch has been backported. The script appends an advisory note to any such finding; use `rpm -q --changelog kernel | grep CVE-XXXX-XXXXX` to confirm patch status on RHEL-family systems.
+
+- **Scan depth:** The `.rhosts` / `.netrc` search only descends 2 levels under `/home` and `/root`. Files nested deeper are not scanned. The SUID scan is restricted to the local filesystem (`-xdev`) and skips bind-mounted or network-mounted paths.
+
+---
+
+## 🔔 Disclaimer
 
 vulnScan is an **informational tool**. Its findings are not a substitute for a professional
 security assessment. Running it on systems you do not own or have explicit authorization to
 audit may violate computer fraud laws. Use responsibly.
+
+---
+
+## 📩 Contact/Connect
+
+**Caine Pavlosky**
+
+* Email: [cainepavl@outlook.com](mailto:cainepavl@outlook.com)
+* Portfolio: [fairdinkumstudios.com](https://fairdinkumstudios.com/)
+* LinkedIn: [linkedin.com/in/cainepavlosky008](https://linkedin.com/in/cainepavlosky008)

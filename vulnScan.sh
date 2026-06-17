@@ -9,7 +9,7 @@
 # ==============================================================================
 #
 # WHAT IT DOES:
-#   Walks through 8 security check categories sequentially, displaying
+#   Walks through 9 security check categories sequentially, displaying
 #   color-coded PASS / WARN / FAIL results for each finding, printing
 #   inline recommendations for every WARN and FAIL, and concluding with
 #   a numeric risk score (0–100) and letter grade.

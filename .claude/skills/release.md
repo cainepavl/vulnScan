@@ -9,7 +9,7 @@ Follow these steps in order. Do not skip any. Confirm each before proceeding to 
 ### 1. Pre-flight checks
 
 - Run `git status` — working tree must be clean. If not, stop and tell the user.
-- Run `shellcheck vulnScan.sh apply-hardening.sh` — must be zero warnings. If not, stop and tell the user.
+- Run `shellcheck vulnScan.sh apply_hardening.sh` — must be zero warnings. If not, stop and tell the user.
 - Show the user the current version (grep `readonly VERSION` in `vulnScan.sh`) and the latest git tag.
 - Ask the user for the new version number (e.g. `0.3.0`). Store it as NEW_VERSION.
 
@@ -19,11 +19,11 @@ Make all four version updates in a single pass:
 
 1. `vulnScan.sh` header comment — `# Version  : X.X.X`
 2. `vulnScan.sh` VERSION constant — `readonly VERSION="X.X.X"`
-3. `apply-hardening.sh` header comment — `# Version  : X.X.X`
+3. `apply_hardening.sh` header comment — `# Version  : X.X.X`
 4. `CLAUDE.md` first line after the title — `**Current release:** vX.X.X`
 5. `README.md` version badge URL — `version-vX.X.X-blue` and the release tag link
 
-After all edits, run `shellcheck vulnScan.sh apply-hardening.sh` again to confirm still clean.
+After all edits, run `shellcheck vulnScan.sh apply_hardening.sh` again to confirm still clean.
 
 ### 3. Commit the version bump
 
