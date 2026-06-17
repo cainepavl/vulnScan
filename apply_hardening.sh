@@ -102,10 +102,14 @@ net.ipv4.icmp_ignore_bogus_error_responses = 1
 EOF
 
 ok "Written $SYSCTL_FILE"
+chmod 644 "$SYSCTL_FILE"
 
 # Apply immediately without requiring a reboot
-sysctl --system &>/dev/null
-ok "sysctl --system applied (settings are live)"
+if sysctl --system &>/dev/null; then
+    ok "sysctl --system applied (settings are live)"
+else
+    fail "sysctl --system failed — settings may not be active (check: journalctl -xe)"
+fi
 
 # Spot-verify the three highest-impact values
 for key in kernel.kptr_restrict kernel.yama.ptrace_scope fs.suid_dumpable; do
@@ -121,46 +125,49 @@ SSHD_CFG="/etc/ssh/sshd_config"
 if [[ ! -f "$SSHD_CFG" ]]; then
     warn "sshd_config not found — SSH server not installed, skipping"
 else
-    # Back up the original config
+    # Back up the original config — abort this section if backup fails
     SSHD_BAK="${SSHD_CFG}.bak.$(date +%Y%m%d%H%M%S)"
-    cp "$SSHD_CFG" "$SSHD_BAK"
-    ok "Backed up sshd_config → $SSHD_BAK"
-
-    # Helper: set a directive in sshd_config.
-    # Deletes all existing occurrences (active or commented) then appends the clean value.
-    # This avoids duplicate entries regardless of how many commented examples exist in the file.
-    set_sshd() {
-        local directive="$1"
-        local value="$2"
-        sed -i -E "/^[[:space:]#]*${directive}[[:space:]]/Id" "$SSHD_CFG"
-        echo "${directive} ${value}" >> "$SSHD_CFG"
-        info "  ${directive} = ${value}"
-    }
-
-    # PermitRootLogin — direct root login bypasses sudo audit trail and exposes
-    # a known target username to brute-force attacks
-    set_sshd "PermitRootLogin" "no"
-
-    # MaxAuthTries — limits attempts per connection before disconnect
-    # Default is 6; 3 slows brute-force without impacting legitimate users
-    set_sshd "MaxAuthTries" "3"
-
-    # X11Forwarding — tunnels the X display over SSH; not needed on servers
-    set_sshd "X11Forwarding" "no"
-
-    # NOTE: PasswordAuthentication intentionally left unchanged.
-    # Disabling it before SSH keys are configured would lock out remote access.
-    warn "PasswordAuthentication left as-is — disable only after SSH keys are deployed"
-
-    # Validate config before restarting — if sshd -t fails, restore backup
-    if sshd -t 2>/dev/null; then
-        ok "sshd config validated (sshd -t passed)"
-        systemctl restart sshd
-        ok "sshd restarted"
+    if ! cp "$SSHD_CFG" "$SSHD_BAK"; then
+        fail "Could not back up sshd_config (disk full?) — skipping SSH section"
     else
-        fail "sshd config test FAILED — restoring backup"
-        cp "$SSHD_BAK" "$SSHD_CFG"
-        fail "Backup restored — SSH changes were NOT applied"
+        ok "Backed up sshd_config → $SSHD_BAK"
+
+        # Helper: set a directive in sshd_config.
+        # Deletes all existing occurrences (active or commented) then appends the clean value.
+        # Uses | as sed delimiter so directive values containing / are safe.
+        set_sshd() {
+            local directive="$1"
+            local value="$2"
+            sed -i -E "\|^[[:space:]#]*${directive}[[:space:]]|Id" "$SSHD_CFG"
+            echo "${directive} ${value}" >> "$SSHD_CFG"
+            info "  ${directive} = ${value}"
+        }
+
+        # PermitRootLogin — direct root login bypasses sudo audit trail and exposes
+        # a known target username to brute-force attacks
+        set_sshd "PermitRootLogin" "no"
+
+        # MaxAuthTries — limits attempts per connection before disconnect
+        # Default is 6; 3 slows brute-force without impacting legitimate users
+        set_sshd "MaxAuthTries" "3"
+
+        # X11Forwarding — tunnels the X display over SSH; not needed on servers
+        set_sshd "X11Forwarding" "no"
+
+        # NOTE: PasswordAuthentication intentionally left unchanged.
+        # Disabling it before SSH keys are configured would lock out remote access.
+        warn "PasswordAuthentication left as-is — disable only after SSH keys are deployed"
+
+        # Validate config before restarting — if sshd -t fails, restore backup
+        if sshd -t 2>/dev/null; then
+            ok "sshd config validated (sshd -t passed)"
+            systemctl restart sshd
+            ok "sshd restarted"
+        else
+            fail "sshd config test FAILED — restoring backup"
+            cp "$SSHD_BAK" "$SSHD_CFG"
+            fail "Backup restored — SSH changes were NOT applied"
+        fi
     fi
 fi
 
@@ -173,6 +180,8 @@ FAILLOCK_CONF="/etc/security/faillock.conf"
 # pam_pwquality — enforce a minimum password length of 14 characters
 # NIST SP 800-63B recommends at least 8 but 12–14 is the current best practice
 if [[ -f "$PWQUALITY_CONF" ]]; then
+    cp "$PWQUALITY_CONF" "${PWQUALITY_CONF}.bak.$(date +%Y%m%d%H%M%S)"
+    info "Backed up pwquality.conf"
     if grep -q "^minlen" "$PWQUALITY_CONF"; then
         # Update existing setting
         sed -i 's/^minlen\s*=.*/minlen = 14/' "$PWQUALITY_CONF"
@@ -187,6 +196,8 @@ fi
 # pam_faillock — lock accounts after 5 failed login attempts
 # This defends against online brute-force without frustrating legitimate users
 if [[ -f "$FAILLOCK_CONF" ]]; then
+    cp "$FAILLOCK_CONF" "${FAILLOCK_CONF}.bak.$(date +%Y%m%d%H%M%S)"
+    info "Backed up faillock.conf"
     if grep -q "^deny" "$FAILLOCK_CONF"; then
         sed -i 's/^deny\s*=.*/deny = 5/' "$FAILLOCK_CONF"
     else
@@ -205,8 +216,11 @@ disable_svc() {
     local reason="$2"
     if systemctl is-active --quiet "$svc" 2>/dev/null \
        || systemctl is-enabled --quiet "$svc" 2>/dev/null; then
-        systemctl disable --now "$svc" 2>/dev/null
-        ok "Disabled: ${svc} — ${reason}"
+        if systemctl disable --now "$svc" 2>/dev/null; then
+            ok "Disabled: ${svc} — ${reason}"
+        else
+            fail "Could not disable ${svc} — check: systemctl status ${svc}"
+        fi
     else
         info "Already inactive: ${svc}"
     fi

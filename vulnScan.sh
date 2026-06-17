@@ -151,6 +151,7 @@ print_skip() { echo -e "  ${DIM}[SKIP]${RESET}  $1"; }
 # Gives the user time to read findings without scrolling past them.
 # ------------------------------------------------------------------------------
 pause() {
+    local _pause_dummy
     echo ""
     echo -e "  ${BLUE}Press [Enter] to continue...${RESET}"
     read -r _pause_dummy
@@ -229,10 +230,11 @@ check_privileges() {
     echo -e "${YELLOW}│    • Some sysctl values may be unreadable                   │${RESET}"
     echo -e "${YELLOW}└─────────────────────────────────────────────────────────────┘${RESET}"
     echo ""
+    local _ans
     echo -ne "  Re-run now with sudo? [y/N]: "
     read -r _ans
     if [[ "${_ans}" =~ ^[Yy]$ ]]; then
-        exec sudo bash "$0"
+        exec sudo bash "$(realpath "$0")"
     fi
     echo ""
     print_info "Continuing in limited (non-root) mode..."
@@ -1872,6 +1874,7 @@ main() {
             echo -e "${YELLOW}WARNING: OS does not appear to be Fedora/RHEL-based (detected: ${os_id}).${RESET}"
             echo -e "${YELLOW}         Some checks (firewalld, dnf, sestatus) may fail or be skipped.${RESET}"
             echo ""
+            local _os_ans
             echo -ne "  Continue anyway? [y/N]: "
             read -r _os_ans
             [[ "${_os_ans}" =~ ^[Yy]$ ]] || exit 0
@@ -1885,6 +1888,7 @@ main() {
     echo -e "  ${WHITE}Starting audit across 9 categories.${RESET}"
     echo -e "  ${WHITE}Press [Enter] after each section to advance.${RESET}"
     echo ""
+    local _start_dummy
     echo -ne "  ${BLUE}Press [Enter] to begin...${RESET}"
     read -r _start_dummy
 
