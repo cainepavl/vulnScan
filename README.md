@@ -13,6 +13,31 @@
   <img src="vulnScan.png" alt="vulnScan" width="600">
 </p>
 
+---
+
+## 📋 Table of Contents
+
+- [What is vulnScan?](#what-is-vulnscan)
+- [Features](#features)
+- [Check Categories](#check-categories)
+- [Risk Scoring](#risk-scoring)
+- [Requirements](#requirements)
+- [Installation](#installation)
+- [Usage](#usage)
+- [Applying Fixes with apply_hardening.sh](#applying-fixes-with-apply_hardeningsh)
+- [Example Output](#example-output)
+- [Security Guarantees](#security-guarantees)
+- [For Security Learners](#for-security-learners)
+- [For Sysadmins](#for-sysadmins)
+- [Contributing](#contributing)
+- [Roadmap](#roadmap)
+- [License](#license)
+- [Limitations](#limitations)
+- [Disclaimer](#disclaimer)
+- [Contact/Connect](#contactconnect)
+
+---
+
 ## 🔍 What is vulnScan?
 
 `vulnScan` is a single-file, read-only Bash script that audits a Linux system against common
@@ -44,7 +69,7 @@ improved score.
 
 ---
 
-## 📋 Check Categories
+## 🗂️ Check Categories
 
 | # | Category | What It Covers |
 |---|----------|----------------|
@@ -76,7 +101,7 @@ Each WARN finding adds **1 risk point**; each FAIL adds **3 risk points**.
 
 ---
 
-## ⚙️ Requirements
+## ⬇️ Requirements
 
 | Requirement | Notes |
 |-------------|-------|
